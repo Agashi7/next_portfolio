@@ -9,30 +9,31 @@ const Email = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-  
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError(null);
+
+  try {
+    const formData = new FormData(e.target);
+    const accessKey = process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY;
+
+    if (!accessKey) {
+      throw new Error("Web3Forms access key is not configured");
+    }
+
+    formData.set("access_key", accessKey);
+
+    if (!navigator.onLine) {
+      throw new Error("No internet connection");
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    let response;
     try {
-      const formData = new FormData(e.target);
-      const accessKey = process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY;
-      
-      console.log("Access Key:", accessKey);
-      console.log("Form Data:", Object.fromEntries(formData));
-  
-      if (!accessKey) {
-        throw new Error("Web3Forms access key is not configured");
-      }
-  
-      if (!navigator.onLine) {
-        throw new Error("No internet connection");
-      }
-  
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-  
-      const response = await fetch("https://api.web3forms.com/submit", {
+      response = await fetch("https://api.web3forms.com/submit", {
         method: "POST",
         body: formData,
         headers: {
@@ -40,34 +41,33 @@ const Email = () => {
         },
         signal: controller.signal,
         mode: "cors",
-      }).catch((fetchError) => {
-        throw new Error(`Fetch failed: ${fetchError.message}`);
       });
-  
-      clearTimeout(timeoutId);
-  
-      const result = await response.json();
-      console.log("Response:", result);
-  
-      if (!result.success) {
-        throw new Error(result.message || "Failed to send message");
-      }
-  
-      alert("Message sent successfully!");
-      e.target.reset();
-    } catch (err) {
-      console.error("Error:", err);
-      if (err.name === "AbortError") {
-        setError("Request timed out");
-      } else if (err.message.includes("Fetch failed")) {
-        setError("Network error: Unable to reach Web3Forms");
-      } else {
-        setError(err.message || "Failed to send message");
-      }
-    } finally {
-      setLoading(false);
+    } catch (fetchError) {
+      throw new Error(`Network error: ${fetchError.message}`);
     }
-  };
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HTTP ${response.status}: ${text}`);
+    }
+
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || "Form submission failed");
+    }
+
+    alert("Message sent successfully!");
+    e.target.reset();
+  } catch (err) {
+    console.error("Error:", err);
+    setError(err.message || "Something went wrong");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // Rest of your component (JSX) remains the same
   return (
