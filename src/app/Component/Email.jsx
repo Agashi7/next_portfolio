@@ -7,71 +7,41 @@ import Image from "next/image";
 
 const Email = () => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [result, setResult] = useState("");
+  const [error, setError] = useState("");
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError(null);
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setResult("");
+    setError("");
 
-  try {
-    const formData = new FormData(e.target);
-    const accessKey = process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY;
+    const formData = new FormData(event.target);
+    formData.append("access_key", "d234685a-622b-4e96-8102-0c2801e48e1b");
 
-    if (!accessKey) {
-      throw new Error("Web3Forms access key is not configured");
-    }
-
-    formData.set("access_key", accessKey);
-
-    if (!navigator.onLine) {
-      throw new Error("No internet connection");
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    let response;
     try {
-      response = await fetch("https://api.web3forms.com/submit", {
+      const response = await fetch("https://api.web3forms.com/submit", {
         method: "POST",
         body: formData,
-        headers: {
-          Accept: "application/json",
-        },
-        signal: controller.signal,
-        mode: "cors",
       });
-    } catch (fetchError) {
-      throw new Error(`Network error: ${fetchError.message}`);
+
+      const data = await response.json();
+
+      if (data.success) {
+        setResult("Form Submitted Successfully ✅");
+        event.target.reset();
+      } else {
+        setError(data.message || "Something went wrong");
+      }
+    } catch (err) {
+      setError("Network error. Please try again later.");
     }
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`HTTP ${response.status}: ${text}`);
-    }
-
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.message || "Form submission failed");
-    }
-
-    alert("Message sent successfully!");
-    e.target.reset();
-  } catch (err) {
-    console.error("Error:", err);
-    setError(err.message || "Something went wrong");
-  } finally {
     setLoading(false);
-  }
-};
+  };
 
-
-  // Rest of your component (JSX) remains the same
   return (
-    <section className="grid md:grid-cols-2 my-12 md:my-12 py-24 gap-4 relative" id="contact">
+    <section className="grid md:grid-cols-2 my-12 py-24 gap-4 relative" id="contact">
       <div className="z-10">
         <h5 className="text-xl font-bold my-2">Let's Connect</h5>
         <p className="text-[#ADB7BE] mb-4 max-w-md">
@@ -94,18 +64,13 @@ const handleSubmit = async (e) => {
             {error}
           </div>
         )}
+        {result && (
+          <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg">
+            {result}
+          </div>
+        )}
+
         <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
-          <input
-            type="hidden"
-            name="access_key"
-            value={process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY}
-          />
-          <input
-            type="hidden"
-            name="redirect"
-            value="https://web3forms.com/success"
-          />
-          
           <div className="mb-6">
             <label htmlFor="email" className="block mb-2 text-sm font-medium">
               Your Email
@@ -159,8 +124,6 @@ const handleSubmit = async (e) => {
           </button>
         </form>
       </div>
-
-      
     </section>
   );
 };
